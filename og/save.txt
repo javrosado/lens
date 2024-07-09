@@ -1,0 +1,56 @@
+def makeImage(data, counter, outputDir):
+    normed = np.array(data) #normalizes the photo, som that numbers above 255, can be dislayed
+    normed[normed>10000] = 0
+    normed = (normed - np.min(normed)) * (255.0/(np.max(normed) - np.min(normed)))
+
+    
+    answer= input("Is this a patterned photo? (Y/N)")
+    if answer == 'Y':
+        #out of the non black pixels, find the bottom 20percent, make them black
+        non_black = normed[normed>0] 
+        bottom_percentile = np.percentile(non_black,20)
+        normed[(normed>0) & (normed<= bottom_percentile)] =0
+#update which are black again, out of the non black ones left, the top 60% is made white
+        non_black = normed[normed>0]
+        top_percentile = np.percentile(non_black, 50)
+        normed[(normed>0) & (normed>= top_percentile)] =255
+
+
+
+        normed = normed.astype(np.uint8) #makes photo
+        img = Image.fromarray(normed, mode='L')  # 'L' mode for grayscale
+
+        
+
+        
+    # Save or display the image
+        imgOutput = os.path.join(outputDir, 'output' + str(counter) + ".png" )
+        img = img.resize((img.width *1500 , img.height * 1500), Image.Resampling.LANCZOS) #upscales
+
+        img = img.resize((int(img.width / 300 ) , int(img.height / 300 )), Image.Resampling.NEAREST)
+
+        
+
+    
+        pixels = img.load()  # Create the pixel map
+        for i in range(img.size[0]):  # For every pixel:
+            for j in range(img.size[1]):
+                c = pixels[i, j]
+                if c > 20:  # If the pixel is not black
+                    pixels[i, j] = 255  # Change it to white
+
+
+    else: 
+        normed = normed.astype(np.uint8) #makes photo
+        img = Image.fromarray(normed, mode='L')  # 'L' mode for grayscale
+    # Save or display the image
+        imgOutput = os.path.join(outputDir, 'output' + str(counter) + ".png" )
+
+
+
+    img.save(imgOutput)  # Save the image
+    img.show() 
+
+def makedir(path):
+    os.mkdir(path)
+

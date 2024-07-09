@@ -1,0 +1,2 @@
+template ks.png found with center (415.0 , 515.5) 
+template m.png found with center (944.0 , 396.5) 
