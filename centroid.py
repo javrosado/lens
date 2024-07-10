@@ -29,7 +29,7 @@ def getPowerArray(folder, outputDir):
 
         csv_Line_Start = None
         for i, line in enumerate(lines): #for every line, check for power points y, next line is array
-            if line.strip().startswith("Power points Y"):
+            if line.strip().startswith("Centroids Y"):
                 csv_Line_Start = i +1 
                 #print("Start Line found!")
                 break
@@ -45,10 +45,13 @@ def getPowerArray(folder, outputDir):
         for line in csv_Lines: #for every line, take values
             #line split thing?
 
-            row = [int(value.strip().replace('NaN', '0') if value.strip() else '0') for value in line.split(",")]
+           for line in csv_Lines: #for every line, take values FIX THIS FOR FLOAT
+            row = [float(value.strip().replace('NaN', '0') if value.strip() else '0') for value in line.split(",")]
             row.pop()
-            print(len(row))
-            data.append(row)
+            row = [int(value) for value in row]  # Convert float values to integers
+            pairs = [(row[i], row[i + 1]) for i in range(0, len(row), 2)]
+            data.append(pairs)
+    
     
        
 
@@ -69,44 +72,28 @@ def getPowerArray(folder, outputDir):
     print(".csv and images saved to " + str(outputDir))
 
 def makeImage(data, name, outputDir):
-    normed = np.array(data) #normalizes the photo, som that numbers above 255, can be dislayed
-    normed = (normed - np.min(normed)) * (255.0/(np.max(normed) - np.min(normed)))
+    # Determine the size of the image based on the maximum coordinates in data
+    max_x = 1440
+    max_y = 1080
 
-    
-    answer= input("Make it white? (Y/N)")
-    if answer == 'Y':
-        
-        non_black = normed[normed>0] 
-        normed[(normed>0)] =255
-        normed = normed.astype(np.uint8) #makes photo
-        img = Image.fromarray(normed, mode='L')  # 'L' mode for grayscale
+    # Create a blank (black) image
+    img = np.zeros((max_y + 1, max_x + 1), dtype=np.uint8)
 
-        
+    # Set specified pixels to white
+    for row in data:
+        for coord in row:
+            x, y = coord
+            img[y, x] = 255  # Set the pixel at (x, y) to white
 
-        
-    # Save or display the image
-        # Get the base name of the file (e.g., 'imageMatch.py')
-        
-
-# Split the base name into name and extension (e.g., ('imageMatch', '.py'))
-        imgOutput = os.path.join(outputDir, name + ".png" )
-
-
-
-    else: 
-        normed = normed.astype(np.uint8) #makes photo
-        img = Image.fromarray(normed, mode='L')  # 'L' mode for grayscale
-    # Save or display the image
-        imgOutput = os.path.join(outputDir, name + ".png" )
-
-
+    # Convert the NumPy array to an image and save or display it
+    img = Image.fromarray(img, mode='L')  # 'L' mode for grayscale
+    imgOutput = os.path.join(outputDir, name + ".png")
 
     img.save(imgOutput)  # Save the image
     img.show() 
 
 def makedir(path):
     os.mkdir(path)
-
 
 
 

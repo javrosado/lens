@@ -143,8 +143,22 @@ if answer == 'Y':
         h,w = img.shape
 
         canvas[y:y+h, x:x+w] = img
-        print("here")
+        
     cv2.imwrite('path_to_save_final_image.jpg', canvas)
+
+answer = input("Create Another? :D (Y/N)?")
+
+if answer == 'Y':
+    newtemplates,_,_ =  loadSnippit()
+    data = zip(newtemplates , locations)
+    canvas = np.zeros_like(original_image)
+    for img, corner in data:
+        x,y = corner
+        h,w = img.shape
+
+        canvas[y:y+h, x:x+w] = img
+        
+    cv2.imwrite('path_to_save_final_image2.jpg', canvas)
 
     
 
