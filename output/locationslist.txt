@@ -1,2 +1,3 @@
-template ks.png found with center (415.0 , 515.5) 
-template m.png found with center (944.0 , 396.5) 
+template 1.png found with center (945.0, 449.5) 
+template 2.png found with center (633.0, 467.5) 
+template 3.png found with center (627.0, 284.5) 

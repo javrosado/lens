@@ -18,7 +18,7 @@ template_height = 300
 template = original_image[location[1]:location[1]+template_height, location[0]:location[0]+template_width]
 
 # Save the template image
-template_path = 'C:\\Users\\woode\\Desktop\\pythonattempt\\template_from_location.jpg'
+template_path = 'C:\\Users\\woode\\Desktop\\py\\template_from_location.jpg'
 cv2.imwrite(template_path, template)
 
 print(f"Template image saved to {template_path}")

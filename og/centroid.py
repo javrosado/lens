@@ -48,7 +48,7 @@ def getPowerArray(folder, outputDir):
            for line in csv_Lines: #for every line, take values FIX THIS FOR FLOAT
             row = [float(value.strip().replace('NaN', '0') if value.strip() else '0') for value in line.split(",")]
             row.pop()
-            row = [int(value) for value in row]  # Convert float values to integers
+            row = [int(round(value)) for value in row]  # Convert float values to integers
             pairs = [(row[i], row[i + 1]) for i in range(0, len(row), 2)]
             data.append(pairs)
     
@@ -77,7 +77,7 @@ def makeImage(data, name, outputDir):
     max_y = 1080
 
     # Create a blank (black) image
-    img = np.zeros((max_y + 1, max_x + 1), dtype=np.uint8)
+    img = np.zeros((max_y , max_x), dtype=np.uint8)
 
     # Set specified pixels to white
     for row in data:
