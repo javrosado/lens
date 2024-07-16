@@ -18,6 +18,7 @@ def getPowerArray(folder, outputDir):
     total_data = []
 
     # First pass: Read CSVs and add all data to total_data
+    answer = input("Make it white? (Y/N)")
     for file in csvFiles:
         with open(file, 'r') as f:
             lines = f.readlines()
@@ -43,7 +44,7 @@ def getPowerArray(folder, outputDir):
 
     # Convert total_data to numpy array and find global min and max
     total_data = np.array(total_data)
-    global_min = np.min(total_data)
+    global_min = 0
     global_max = np.max(total_data)
 
     # Second pass: Normalize data and create images
@@ -81,20 +82,18 @@ def getPowerArray(folder, outputDir):
             writer.writerows(data)
 
         # Create and save image
-        makeImage(normed, os.path.splitext(os.path.basename(file))[0], outputDir)
+        makeImage(normed, os.path.splitext(os.path.basename(file))[0], outputDir, answer)
         counter += 1
 
     print(".csv and images saved to " + str(outputDir))
 
-def makeImage(normed, name, outputDir):
-    answer = input("Make it white? (Y/N)")
+def makeImage(normed, name, outputDir, answer):
     if answer.upper() == 'Y':
         normed[normed > 0] = 255
     normed = normed.astype(np.uint8)
     img = Image.fromarray(normed, mode='L')
     imgOutput = os.path.join(outputDir, name + ".png")
     img.save(imgOutput)
-    img.show()
 
 def main():
     folderPath = input("Enter the .csv directory: ")

@@ -1,3 +1,2 @@
-template 1.png found with center (945.0, 449.5) 
-template 2.png found with center (633.0, 467.5) 
-template 3.png found with center (627.0, 284.5) 
+template 7.png found with center (952.5, 875.0) 
+template 8.png found with center (948.5, 1051.0) 
