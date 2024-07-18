@@ -2,9 +2,10 @@ import os
 import csv
 import sys
 import time
-import numpy
-import ctypes
-from ctypes import byref, c_double, c_float, c_int64, c_uint64, create_string_buffer, c_bool, c_char_p, c_uint32, c_int32, c_ulong, CDLL, cdll, sizeof, windll, c_long, Array
+import numpy as np
+#import ctypes
+#from ctypes import byref, c_double, c_float, c_int64, c_uint64, create_string_buffer, c_bool, c_char_p, c_uint32, c_int32, c_ulong, CDLL, cdll, sizeof, windll, c_long, Array, c_char
+from ctypes import *
 
 def main():
     #load dll for the wavefront sensor
@@ -62,7 +63,7 @@ def main():
 
         #select MLA    
         lib.WFS_SelectMla(instrument_handle, 0)
-        lib.WFS_SetHighspeedMode(instrument_handle,c_int32(1),c_int32(1),c_int32(1),c_int32(1))
+        
 
         #configure cam resolution and pixel format. Method outputs number of spots in the X and Y for selected MLA
         # PIXEL_FORMAT_MONO8 = 0
@@ -82,8 +83,13 @@ def main():
         actual_exposure = c_double()
         actual_gain = c_double()
         device_status = c_int32()
+
+        print(lib.WFS_SetExposureTime(instrument_handle, c_double(0.01), byref(actual_exposure)))
+        print(actual_exposure)
+
+        
         for i in range(10):
-            lib.WFS_TakeSpotfieldImageAutoExpos(instrument_handle, byref(actual_exposure), byref(actual_gain))
+            lib.WFS_TakeSpotfieldImage(instrument_handle)
             lib.WFS_GetStatus(instrument_handle, byref(device_status))
             if device_status.value & 0x00000002:
                 print("Power too high")
@@ -94,11 +100,21 @@ def main():
             else:
                 print("Image is usable.... breaking loop")
                 break
-        
+
+
         #close program if image is not usable
         if device_status.value & 0x00000002 or device_status.value & 0x00000004 or device_status.value & 0x00000008:
             print("Image is not usable.... closing program")
             quit()
+
+        imgBuf = np.zeros((1440,1080), dtype= np.ubyte)  
+
+        rows = c_int32()
+        cols = c_int32()
+        lib.WFS_GetSpotfieldImageCopy(instrument_handle, imgBuf.ctypes.data_as(POINTER(c_char)), byref(rows), byref(cols))
+        print(imgBuf)
+        print(rows)
+        print(cols)
 
         #calculate all spot centroid positions using dynamic noise cut option
         lib.WFS_CalcSpotsCentrDiaIntens(instrument_handle, c_int32(1), c_int32(1))
@@ -117,8 +133,8 @@ def main():
             print("highspeed mode entered!")
             #calculate spot deviations to internal reference
             lib.WFS_CalcSpotToReferenceDeviations(instrument_handle, c_int32(0))
-            spot_intensities = numpy.zeros((80,80), dtype= numpy.float32)  
-            lib.WFS_GetSpotIntensities(instrument_handle, spot_intensities.ctypes.data_as(ctypes.POINTER(c_int32)))
+            spot_intensities = np.zeros((80,80), dtype= np.float32)  
+            lib.WFS_GetSpotIntensities(instrument_handle, spot_intensities.ctypes.data_as(POINTER(c_int32)))
 
 
             if not os.path.exists(output):
@@ -148,8 +164,8 @@ def main():
             print("beam photo!")
             #calculate spot deviations to internal reference
             lib.WFS_CalcSpotToReferenceDeviations(instrument_handle, c_int32(0))
-            spot_intensities = numpy.zeros((80,80), dtype= numpy.float32)  
-            lib.WFS_GetSpotIntensities(instrument_handle, spot_intensities.ctypes.data_as(ctypes.POINTER(c_int32)))
+            spot_intensities = np.zeros((80,80), dtype= np.float32)  
+            lib.WFS_GetSpotIntensities(instrument_handle, spot_intensities.ctypes.data_as(POINTER(c_int32)))
 
             if not os.path.exists(output):
                 os.makedirs(output)
@@ -179,8 +195,8 @@ def main():
             wavefront =[]
             #calculate spot deviations to internal reference
             lib.WFS_CalcSpotToReferenceDeviations(instrument_handle, c_int32(0))
-            delay = numpy.zeros((80,80), dtype= numpy.float32)  
-            lib.WFS_CalcWavefront(instrument_handle, c_int32(0), c_int32(0), delay.ctypes.data_as(ctypes.POINTER(c_int32)))
+            delay = np.zeros((80,80), dtype= np.float32)  
+            lib.WFS_CalcWavefront(instrument_handle, c_int32(0), c_int32(0), delay.ctypes.data_as(POINTER(c_int32)))
 
             if not os.path.exists(output):
                 os.makedirs(output)
@@ -192,11 +208,11 @@ def main():
             outfile = os.path.join(delay_folder, f"{counter}.csv")
 
 
-            x_values = numpy.arange(-3.45, 3.45 + 0.15, 0.15)
-            y_values = numpy.arange(-2.55, 2.55 + 0.15, 0.15)
+            x_values = np.arange(-3.45, 3.45 + 0.15, 0.15)
+            y_values = np.arange(-2.55, 2.55 + 0.15, 0.15)
 
-            x_values = numpy.round(x_values, 2)
-            y_values = numpy.round(y_values, 2)
+            x_values = np.round(x_values, 2)
+            y_values = np.round(y_values, 2)
 
 
             # Determine the number of rows and columns to write
