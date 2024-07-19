@@ -1,15 +1,21 @@
+import math
 import cv2
 import csv
 import os
 import glob
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy.optimize import curve_fit
+import pandas as pd
 
 def find_template_location(original, template): #finds template
     result = cv2.matchTemplate(original, template, cv2.TM_CCOEFF_NORMED)
     _, _, min_loc, max_loc = cv2.minMaxLoc(result)
     return max_loc
 
+
+
+def calcScale(original,template)
 
 
 def loadSnippit(original_image, original_image_width, original_image_height): #loads templates
@@ -70,19 +76,71 @@ def loadSnippit(original_image, original_image_width, original_image_height): #l
 
 
 #STUFF FOR PHASE DELAY
-def mmFromCenter(original, sides, templateCenters): #finds shift of snippits
+
+def gaussian_2d(x, y, x0, y0, sigma_x, sigma_y, A):
+    return A * np.exp(-(((x - x0)**2 / (2 * sigma_x**2)) + ((y - y0)**2 / (2 * sigma_y**2))))
+
+def fit_gaussian_to_power(power_array):
+    x = np.arange(power_array.shape[1])
+    y = np.arange(power_array.shape[0])
+    X, Y = np.meshgrid(x, y)
+    
+    xdata = np.vstack((X.ravel(), Y.ravel()))
+    ydata = power_array.ravel()
+    
+    initial_guess = [power_array.shape[1] / 2, power_array.shape[0] / 2, 1, 1, power_array.max()]
+    
+    params, _ = curve_fit(lambda x, x0, y0, sigma_x, sigma_y, A: gaussian_2d(x[0], x[1], x0, y0, sigma_x, sigma_y, A),
+                          xdata, ydata, p0=initial_guess)
+    
+    x0, y0, sigma_x, sigma_y, A = params
+    return x0, y0
+
+def findCenterBeam(powerCSVS):
+    centers = []
+
+    for csv in powerCSVS:
+        power_df = pd.read_csv(power_file, header=None)
+        power_array = power_df.values
+
+        x0, y0 = fit_gaussian_to_power(power_array)
+    
+        # Store the center for comparison
+        centers.append((x0, y0, power_file))
+
+
+def mostCenter(orignal,templateCenters):
+    counter = 1
+    num = 0
+    py,px = orignal.shape
+    originalCenter = (px/2,py/2)
+
+    min_distance = float('inf')
+    closest_point = None
+    
+    for p in templateCenters:
+        distance = math.sqrt((p[0] - originalCenter[0]) ** 2 + (p[1] - originalCenter[1]) ** 2)
+        counter += 1
+        if distance < min_distance:
+            min_distance = distance
+            closest_point = p
+            num = counter
+    print(num)
+    return min_distance, closest_point[0], closest_point[1]
+
+
+def mmFromCenter(px,py, original, sides, templateCenters): #finds shift of snippits
    
     height, width = original.shape
 
     # Calculate center pixel coordinates
-    center_x = width // 2
-    center_y = height // 2
+    center_x = px
+    center_y = py
 
     # Display the center pixel coordinates
     print(f"Center Pixel Coordinates: ({center_x}, {center_y})")
     mmPerPixel = sides/width
     print(f"mm per pixel: {mmPerPixel}mm")
-    print(templateCenters[0])
     mmXShift = []
     mmYShift = []
 
@@ -91,7 +149,7 @@ def mmFromCenter(original, sides, templateCenters): #finds shift of snippits
             xshift = center[0] - center_x
         if(center[0]<center_x):
             xshift = center[0] - center_x
-        if(center[1]>center_y):
+        if(center[1]>=center_y):
             yshift = center_y - center[1]
         if(center[1]<center_y):
             yshift = center_y - center[1]
@@ -125,15 +183,17 @@ def makeScatterPlot(datasets, labels, outputDir):
     for i in range(len(datasets)):
         plt.gca().collections[i].set_norm(plt.Normalize(vmin=vmin, vmax=vmax))
 
+    plt.gca().set_facecolor('black')  
     plt.colorbar(label='Delay')
     plt.xlabel('X Coordinates')
     plt.ylabel('Y Coordinates')
     plt.title('Combined Scatter Plot')
+   
 
     plt.xlim(min(all_x_values) -1 , max(all_x_values)+1)
     plt.ylim(min(all_y_values) - 1, max(all_y_values) +1)
 
-    plt.legend()
+
 
     imgOutput = os.path.join(outputDir, "combined_plot.png")
     plt.savefig(imgOutput, dpi = 700)
@@ -202,7 +262,7 @@ def phase(xshift, yshift):
     getPowerArray(folderPath, outputPath, xshift, yshift)
 #END OF STUFF FOR PHASE DELAY
 
-def powerMosiac(locations, original_image, original_image_width, original_image_height):
+def powerMosiac(locations, original_image, original_image_width, original_image_height,output):
     newtemplates, _, __, _ = loadSnippit(original_image, original_image_width, original_image_height)
     data = zip(newtemplates, locations)
     
@@ -234,8 +294,9 @@ def powerMosiac(locations, original_image, original_image_width, original_image_
     
     # Clip values to the valid range and convert back to original image dtype
     final_canvas = np.clip(final_canvas, 0, 255).astype(original_image.dtype)
-        
-    cv2.imwrite('path_to_save_final_image.jpg', final_canvas)
+    save = os.path.join(output,"powerMosiac.jpg")
+    cv2.imwrite(save, final_canvas)
+    return final_canvas
 
 
 #centroid stuff
@@ -307,9 +368,6 @@ def ImageMatch():
     for i, template in enumerate(templates):
         location = find_template_location(original_image, template)
         locations.append(location)
-        print(location)
-        print( template.shape[1])
-        print(template.shape[0])
         centers.append((location[0] + template.shape[1]/2, location[1] + template.shape[0]/2 ))
         locationString = f"template {templateNames[i]} found with center {centers[i]} "
 
@@ -334,19 +392,34 @@ def ImageMatch():
 
     print(f"Output image with marked locations saved at {output_path}")
 
+    mosaic = None
+
     answer = input("Create Mosaic :D (Y/N)? ")
 
     if answer == 'Y':
-        powerMosiac(locations, original_image, patternWidth, patternLength)
+        mosaic = powerMosiac(locations, original_image, patternWidth, patternLength,output_folder)
     
     #answer = input("Centroid locations :D (Y/N)?")
 
     #if answer == 'Y':
         #centroid(locations, original_image)
     
-    answer = input(" Phase Delay Scatter (Y/N)?")
+    answer = input("Phase Delay Scatter (Y/N)?")
     if answer == 'Y':
-        xshift, yshift = mmFromCenter(original_image, patternWidth, centers)
+
+        answer = input ("Full mosiac?(Y/N)")
+        if answer == 'Y':
+            if mosaic is not None:
+                _,px,py = mostCenter(original_image, centers)
+            else:
+                print("A mosaic was not created!")
+        else:
+            h, w = original_image.shape
+            py = h/2
+            px = w/2
+        
+        xshift, yshift = mmFromCenter(px, py,original_image, patternWidth, centers)
+
         phase(xshift, yshift)
     
 

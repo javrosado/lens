@@ -3,9 +3,14 @@ import csv
 import sys
 import time
 import numpy as np
+import matplotlib.pyplot as plt
 #import ctypes
 #from ctypes import byref, c_double, c_float, c_int64, c_uint64, create_string_buffer, c_bool, c_char_p, c_uint32, c_int32, c_ulong, CDLL, cdll, sizeof, windll, c_long, Array, c_char
 from ctypes import *
+
+
+def update():
+    
 
 def main():
     #load dll for the wavefront sensor
@@ -107,7 +112,7 @@ def main():
             print("Image is not usable.... closing program")
             quit()
 
-        imgBuf = np.zeros((1440,1080), dtype= np.ubyte)  
+        imgBuf = np.zeros((1080,1440), dtype= np.ubyte)  
 
         rows = c_int32()
         cols = c_int32()
@@ -115,6 +120,8 @@ def main():
         print(imgBuf)
         print(rows)
         print(cols)
+        plt.imshow(imgBuf)
+        plt.show()
 
         #calculate all spot centroid positions using dynamic noise cut option
         lib.WFS_CalcSpotsCentrDiaIntens(instrument_handle, c_int32(1), c_int32(1))
