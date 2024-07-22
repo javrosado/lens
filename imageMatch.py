@@ -15,18 +15,40 @@ def find_template_location(original, template): #finds template
 
 
 
-def calcScale(original,template)
+def calcScale(original_image, template, original_image_width, original_image_height):
+        
+    original_image_resolutionx = original_image.shape[1]
+    original_image_resolutiony = original_image.shape[0]
+
+    if template.shape[1] == 47: #7.2mm x 5.4mm
+        xscale = ( (original_image_resolutionx / original_image_width) * (7.05/47))
+        yscale = ( (original_image_resolutiony / original_image_height) * (5.25/35))
+        print("7.2mm x 5.4mm detected ┬─┬ノ( º _ ºノ)")
+
+    elif template.shape[1] == 35:
+        xscale = ( (original_image_resolutionx / original_image_width) * (5.25/35))
+        yscale = ( (original_image_resolutiony / original_image_height) * (5.25/35))
+        print("5.4mm x 5.4mm detected ┬─┬ノ( º _ ºノ)")
+    
+    elif template.shape[1] == 23:
+        xscale = ( (original_image_resolutionx / original_image_width) * (3.45/23))
+        yscale = ( (original_image_resolutiony / original_image_height) * (3.45/23))
+        print("3.84mm x 3.84mm detected")
+
+    elif template.shape[1] == 15:
+        xscale = ( (original_image_resolutionx / original_image_width) * (2.25/15))
+        yscale = ( (original_image_resolutiony / original_image_height) * (2.25/15))
+        print("2.56mm x 2.56mm detected")
+
+    else:
+        print("Size not recognized... Skipping (╯°□°)╯︵ ┻━┻")
+    return xscale,yscale
 
 
 def loadSnippit(original_image, original_image_width, original_image_height): #loads templates
     template_folder = input("Enter snippit folder. Remember that the patterned and unpatterned counter parts must share the same name in separate folders:")
     # Paths to the template images
     template_paths = glob.glob(str(template_folder) + "/*.png") 
-
-
-    #pattern dimensions
-    original_image_resolutionx = original_image.shape[1]
-    original_image_resolutiony = original_image.shape[0]
 
 
 
@@ -40,39 +62,19 @@ def loadSnippit(original_image, original_image_width, original_image_height): #l
         template = cv2.imread(template_path, cv2.IMREAD_GRAYSCALE)
         if template is None:
             raise ValueError(f"Template image {template_path} could not be loaded (╯°□°)╯︵ ┻━┻")
-    #WIERD, SO IS IT .153 * 47 lenses? That is 7.2 answays
-        elif template.shape[1] == 47: #7.2mm x 5.4mm
-            xscale = ( (original_image_resolutionx / original_image_width) * (7.05/47))
-            yscale = ( (original_image_resolutiony / original_image_height) * (5.25/35))
-            print("7.2mm x 5.4mm detected ┬─┬ノ( º _ ºノ)")
-
-        elif template.shape[1] == 35:
-            xscale = ( (original_image_resolutionx / original_image_width) * (5.25/35))
-            yscale = ( (original_image_resolutiony / original_image_height) * (5.25/35))
-            print("5.4mm x 5.4mm detected ┬─┬ノ( º _ ºノ)")
         
-        elif template.shape[1] == 23:
-            xscale = ( (original_image_resolutionx / original_image_width) * (3.45/23))
-            yscale = ( (original_image_resolutiony / original_image_height) * (3.45/23))
-            print("3.84mm x 3.84mm detected")
-
-        elif template.shape[1] == 15:
-            xscale = ( (original_image_resolutionx / original_image_width) * (2.25/15))
-            yscale = ( (original_image_resolutiony / original_image_height) * (2.25/15))
-            print("2.56mm x 2.56mm detected")
-
+        
         else:
-            print("Size not recognized... Skipping (╯°□°)╯︵ ┻━┻")
-            continue
-        
-       
+            xscale,yscale = calcScale(original_image,template,original_image_width,original_image_height)
+            
+            
 
-        #properly scales template to  original
-        template = cv2.resize(template, (round(template.shape[1] * yscale), round(template.shape[0] * xscale)), interpolation=cv2.INTER_CUBIC)
-        templates.append(template)
-        templateNames.append(os.path.basename(template_path))
+            #properly scales template to  original
+            template = cv2.resize(template, (round(template.shape[1] * yscale), round(template.shape[0] * xscale)), interpolation=cv2.INTER_CUBIC)
+            templates.append(template)
+            templateNames.append(os.path.basename(template_path))
 
-    return templates, templateNames, xscale, yscale
+    return templates, templateNames, xscale, yscale, template_folder
 
 
 #STUFF FOR PHASE DELAY
@@ -80,37 +82,85 @@ def loadSnippit(original_image, original_image_width, original_image_height): #l
 def gaussian_2d(x, y, x0, y0, sigma_x, sigma_y, A):
     return A * np.exp(-(((x - x0)**2 / (2 * sigma_x**2)) + ((y - y0)**2 / (2 * sigma_y**2))))
 
-def fit_gaussian_to_power(power_array):
-    x = np.arange(power_array.shape[1])
-    y = np.arange(power_array.shape[0])
-    X, Y = np.meshgrid(x, y)
+def fit_gaussian_to_power(power_array, initial_guess = None):
+    # Extract millimeter coordinates from the power array
+    x_coords_mm = power_array[0, 1:]  # x coordinates in mm
+    y_coords_mm = power_array[1:, 0]  # y coordinates in mm
+
+    # Create grid of coordinates
+    X_mm, Y_mm = np.meshgrid(x_coords_mm, y_coords_mm)
     
-    xdata = np.vstack((X.ravel(), Y.ravel()))
-    ydata = power_array.ravel()
-    
-    initial_guess = [power_array.shape[1] / 2, power_array.shape[0] / 2, 1, 1, power_array.max()]
-    
-    params, _ = curve_fit(lambda x, x0, y0, sigma_x, sigma_y, A: gaussian_2d(x[0], x[1], x0, y0, sigma_x, sigma_y, A),
-                          xdata, ydata, p0=initial_guess)
-    
+    # Flatten the arrays for curve fitting
+    xdata = np.vstack((X_mm.ravel(), Y_mm.ravel()))
+    ydata = power_array[1:, 1:].ravel()
+
+    if initial_guess is None:
+        print("cheesin")
+        initial_guess = [0, 0, 2.8, 2.8, power_array[1:, 1:].max()]
+
+    params = np.array(initial_guess)
+    max_iterations = 10
+    tol = 1e-8
+    for i in range(max_iterations):
+        # Fit Gaussian model
+        new_params, _ = curve_fit(lambda x, x0, y0, sigma_x, sigma_y, A: gaussian_2d(x[0], x[1], x0, y0, sigma_x, sigma_y, A),
+                                 xdata, ydata, p0=params)
+        
+        # Check for convergence
+        param_change = np.linalg.norm(new_params - params)
+        if param_change < tol:
+            print(f"Converged after {i + 1} iterations.")
+            break
+        
+        # Update parameters for the next iteration
+        params = new_params
+
     x0, y0, sigma_x, sigma_y, A = params
-    return x0, y0
-
-def findCenterBeam(powerCSVS):
-    centers = []
-
-    for csv in powerCSVS:
-        power_df = pd.read_csv(power_file, header=None)
-        power_array = power_df.values
-
-        x0, y0 = fit_gaussian_to_power(power_array)
+    fitted_gaussian = gaussian_2d(X_mm, Y_mm, x0, y0, sigma_x, sigma_y, A)
     
-        # Store the center for comparison
-        centers.append((x0, y0, power_file))
+    
+    
+    # Compute residuals
+    residuals = power_array[1:, 1:] - fitted_gaussian
+    percent_diff = (residuals / power_array[1:, 1:]) * 100
+    
+    # Plot the results
+    fig, axs = plt.subplots(1, 3, figsize=(18, 5))
+    
+    # Plot original data
+    c = axs[0].pcolormesh(X_mm, Y_mm, power_array[1:, 1:], shading='auto', cmap='viridis')
+    axs[0].set_title('Original Data')
+    fig.colorbar(c, ax=axs[0])
+    
+    # Plot fitted Gaussian
+    c = axs[1].pcolormesh(X_mm, Y_mm, fitted_gaussian, shading='auto', cmap='viridis')
+    axs[1].set_title('Fitted Gaussian')
+    fig.colorbar(c, ax=axs[1])
+    
+    # Plot residuals
+    c = axs[2].pcolormesh(X_mm, Y_mm, percent_diff, shading='auto', cmap='coolwarm', vmin=-100, vmax=100)
+    axs[2].set_title('Percent Difference')
+    cbar = fig.colorbar(c, ax=axs[2])
+    cbar.set_label('Percent Difference')
+    
+    plt.tight_layout()
+    plt.show()
 
 
-def mostCenter(orignal,templateCenters):
-    counter = 1
+    print(x0)
+    print(y0)
+
+    return x0, y0, sigma_x, sigma_y, A, params
+
+def plot_beam_analysis(folder, index):
+    power_array = getPowerCSV(folder, index)
+    x0_mm, y0_mm, sigma_x, sigma_y, A, params = fit_gaussian_to_power(power_array)
+    
+    return x0_mm, y0_mm
+
+
+def mostCenter(orignal,templateCenters): #finds template that is closest to center
+    counter = -1 #keeps track of its position in array
     num = 0
     py,px = orignal.shape
     originalCenter = (px/2,py/2)
@@ -125,8 +175,7 @@ def mostCenter(orignal,templateCenters):
             min_distance = distance
             closest_point = p
             num = counter
-    print(num)
-    return min_distance, closest_point[0], closest_point[1]
+    return num
 
 
 def mmFromCenter(px,py, original, sides, templateCenters): #finds shift of snippits
@@ -149,7 +198,7 @@ def mmFromCenter(px,py, original, sides, templateCenters): #finds shift of snipp
             xshift = center[0] - center_x
         if(center[0]<center_x):
             xshift = center[0] - center_x
-        if(center[1]>=center_y):
+        if(center[1]>=center_y): #these must be flipped bc larger pixel number, is lower in photo
             yshift = center_y - center[1]
         if(center[1]<center_y):
             yshift = center_y - center[1]
@@ -197,7 +246,7 @@ def makeScatterPlot(datasets, labels, outputDir):
 
     imgOutput = os.path.join(outputDir, "combined_plot.png")
     plt.savefig(imgOutput, dpi = 700)
-    print("after")
+
 
 
 def getPowerArray(folder, outputDir, xshift, yshift):
@@ -242,7 +291,8 @@ def getPowerArray(folder, outputDir, xshift, yshift):
 
         plot_data = plot_data[:, :-1]
         # Apply shifts
-        print(len(xshift))
+        x_send = x_values
+        y_send = y_values
         x_values = [x + xshift[counter] for x in x_values]
         y_values = [y + yshift[counter] for y in y_values]
 
@@ -256,14 +306,54 @@ def getPowerArray(folder, outputDir, xshift, yshift):
     makeScatterPlot(datasets, labels, outputDir)
     print(f".csv files and images saved to {outputDir}")
 
+
+
 def phase(xshift, yshift):
     folderPath = input("Enter the directory containing .csv files:")
     outputPath = input("Enter the output directory for images: ")
     getPowerArray(folderPath, outputPath, xshift, yshift)
 #END OF STUFF FOR PHASE DELAY
 
+
+def getPowerCSV(folder, num):
+    # Get a list of all CSV files in the folder
+    csvFiles = glob.glob(os.path.join(folder, "*.csv"))
+    
+    # Select the file at the specified index
+    file = csvFiles[num]
+    
+    with open(file, 'r') as f:
+        reader = csv.reader(f)
+        lines = list(reader)
+
+    print("Opened and read file " + file)
+    first_row_values = [
+        -3.450, -3.300, -3.150, -3.000, -2.850, -2.700, -2.550, -2.400, -2.250, -2.100, 
+        -1.950, -1.800, -1.650, -1.500, -1.350, -1.200, -1.050, -0.900, -0.750, -0.600, 
+        -0.450, -0.300, -0.150, 0.000, 0.150, 0.300, 0.450, 0.600, 0.750, 0.900, 
+        1.050, 1.200, 1.350, 1.500, 1.650, 1.800, 1.950, 2.100, 2.250, 2.400, 
+        2.550, 2.700, 2.850, 3.000, 3.150, 3.300, 3.450
+    ]
+    first_col_values = [2.550, 2.4, 2.25, 2.1, 1.950, 1.80, 1.650, 1.5, 1.35, 1.2, 1.50, 0.9, 0.75,
+                     0.60, 0.45, .3, .15, 0.0, -0.15, -0.3, -0.45, -0.6, -0.75, -0.9, -1.050,
+                     -1.2, -1.350, -1.5, -1.65, -1.8, -1.95, -2.1, -2.25, -2.4, -2.55]
+    
+    # Create a 48x36 array with the first row set to the specified values
+    array = np.zeros((36, 48))
+    array[0, 1:] = first_row_values
+    array[1:36, 0] = first_col_values
+
+    for i, line in enumerate(lines):
+        for j, value in enumerate(line):
+            array[i + 1, j + 1] = float(value)
+    
+    return array
+
+
+
+
 def powerMosiac(locations, original_image, original_image_width, original_image_height,output):
-    newtemplates, _, __, _ = loadSnippit(original_image, original_image_width, original_image_height)
+    newtemplates, _, __, _, folder = loadSnippit(original_image, original_image_width, original_image_height)
     data = zip(newtemplates, locations)
     
     # Initialize the canvas and the alpha_accumulation canvas
@@ -296,7 +386,7 @@ def powerMosiac(locations, original_image, original_image_width, original_image_
     final_canvas = np.clip(final_canvas, 0, 255).astype(original_image.dtype)
     save = os.path.join(output,"powerMosiac.jpg")
     cv2.imwrite(save, final_canvas)
-    return final_canvas
+    return final_canvas, folder
 
 
 #centroid stuff
@@ -352,7 +442,7 @@ def ImageMatch():
         raise ValueError(f"No image found at {original_image_path}")
         exit()
 
-    templates, templateNames, xscale, yscale = loadSnippit(original_image,patternWidth, patternLength)
+    templates, templateNames, xscale, yscale,_ = loadSnippit(original_image,patternWidth, patternLength)
 
 
 
@@ -397,7 +487,7 @@ def ImageMatch():
     answer = input("Create Mosaic :D (Y/N)? ")
 
     if answer == 'Y':
-        mosaic = powerMosiac(locations, original_image, patternWidth, patternLength,output_folder)
+        mosaic, folder = powerMosiac(locations, original_image, patternWidth, patternLength,output_folder)
     
     #answer = input("Centroid locations :D (Y/N)?")
 
@@ -406,21 +496,26 @@ def ImageMatch():
     
     answer = input("Phase Delay Scatter (Y/N)?")
     if answer == 'Y':
-
-        answer = input ("Full mosiac?(Y/N)")
+        x0 = 0
+        y0 = 0
+        answer = input ("Full mosiac?(Y/N) ONLY LARGEST")
         if answer == 'Y':
-            if mosaic is not None:
-                _,px,py = mostCenter(original_image, centers)
+            if mosaic is not None: #if you made a mosiaci
+                
+                index = mostCenter(original_image, centers)
+                x0, y0 =plot_beam_analysis(folder,index)
+                #find the power array of index
             else:
                 print("A mosaic was not created!")
-        else:
-            h, w = original_image.shape
-            py = h/2
-            px = w/2
-        
-        xshift, yshift = mmFromCenter(px, py,original_image, patternWidth, centers)
 
+        h, w = original_image.shape
+        py = h/2
+        px = w/2
+        xshift, yshift = mmFromCenter(px, py,original_image, patternWidth, centers)
+        xshift = [x + x0 for x in xshift]
+        yshift = [y-y0 for y in yshift] #y is subtracted because larger pixel number is lower, but gaussian fit calcs it other way around. Looking at graph, its inverted.
         phase(xshift, yshift)
+        
     
 
 

@@ -9,7 +9,6 @@ import matplotlib.pyplot as plt
 from ctypes import *
 
 
-def update():
     
 
 def main():

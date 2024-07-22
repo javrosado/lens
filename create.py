@@ -76,13 +76,15 @@ def getPowerArray(folder, outputDir):
         data = np.array(data)
         normed = (data - global_min) * (255.0 / (global_max - global_min))
 
-        output_file_csv = os.path.join(outputDir, f'output{counter}.csv')
+        name = os.path.splitext(os.path.basename(file))[0]
+
+        output_file_csv = os.path.join(outputDir, f'{name}.csv')
         with open(output_file_csv, 'w', newline='') as f:
             writer = csv.writer(f)
             writer.writerows(data)
 
         # Create and save image
-        makeImage(normed, os.path.splitext(os.path.basename(file))[0], outputDir, answer)
+        makeImage(normed, name, outputDir, answer)
         counter += 1
 
     print(".csv and images saved to " + str(outputDir))

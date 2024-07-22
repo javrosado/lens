@@ -97,10 +97,122 @@ def update(frame, img_plot):
     img_plot.set_array(imgBuf)
     return (img_plot,)
 
+def pattern(output,counter):
+    print("patterned photo!")
+    #calculate spot deviations to internal reference
+    lib.WFS_CalcSpotToReferenceDeviations(instrument_handle, c_int32(0))
+    spot_intensities = np.zeros((80,80), dtype= np.float32)  
+    lib.WFS_GetSpotIntensities(instrument_handle, spot_intensities.ctypes.data_as(POINTER(c_int32)))
+
+
+    if not os.path.exists(output):
+        os.makedirs(output)
+    
+    pattern_folder = os.path.join(output, "patterned")
+    if not os.path.exists(pattern_folder):
+        os.makedirs(pattern_folder)
+
+    outfile = os.path.join(pattern_folder, f"{counter}.csv")
+
+
+    num_rows_to_write = num_spots_y.value
+    num_columns_to_write = num_spots_x.value
+
+    with open(outfile, mode='w', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow(["Power points Y"])
+        for i in range(num_rows_to_write):
+            row_to_write = spot_intensities[i][:num_columns_to_write].tolist()
+            writer.writerow(row_to_write)
+
+def power(output,counter):
+    print("beam photo!")
+    #calculate spot deviations to internal reference
+    lib.WFS_CalcSpotToReferenceDeviations(instrument_handle, c_int32(0))
+    spot_intensities = np.zeros((80,80), dtype= np.float32)  
+    lib.WFS_GetSpotIntensities(instrument_handle, spot_intensities.ctypes.data_as(POINTER(c_int32)))
+
+    if not os.path.exists(output):
+        os.makedirs(output)
+
+    beam_folder = os.path.join(output, "beam")
+    if not os.path.exists(beam_folder):
+        os.makedirs(beam_folder)
+
+    outfile = os.path.join(beam_folder,   f"{counter}.csv")
+
+
+    num_rows_to_write = num_spots_y.value
+    num_columns_to_write = num_spots_x.value
+
+    with open(outfile, mode='w', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow(["Power points Y"])
+        for i in range(num_rows_to_write):
+            row_to_write = spot_intensities[i][:num_columns_to_write].tolist()
+            writer.writerow(row_to_write)
+
+def delay(output, counter):
+    print("delay")
+    #calculate spot deviations to internal reference
+    lib.WFS_CalcSpotToReferenceDeviations(instrument_handle, c_int32(0))
+    delay = np.zeros((80,80), dtype= np.float32)  
+    lib.WFS_CalcWavefront(instrument_handle, c_int32(0), c_int32(0), delay.ctypes.data_as(POINTER(c_int32)))
+
+    if not os.path.exists(output):
+        os.makedirs(output)
+    
+    delay_folder = os.path.join(output, "delay")
+    if not os.path.exists(delay_folder):
+        os.makedirs(delay_folder)
+
+    outfile = os.path.join(delay_folder, f"{counter}.csv")
+
+
+    x_values = np.arange(-3.45, 3.45 + 0.15, 0.15)
+    y_values = np.arange(-2.55, 2.55 + 0.15, 0.15)
+
+    x_values = np.round(x_values, 2)
+    y_values = np.round(y_values, 2)
+
+
+    # Determine the number of rows and columns to write
+    num_rows_to_write = len(y_values)
+    num_columns_to_write = len(x_values)
+
+    with open(outfile, mode='w', newline='') as file:
+        writer = csv.writer(file)
+        
+        # Write the top-left corner and x-values header row
+        header_row = ['y / x [mm]'] + x_values.tolist()
+        writer.writerow(["Spots Y"])
+        writer.writerow(header_row)
+        
+        # Write the y-values and spot intensities
+        # Write the y-values and spot intensities
+        for i in range(num_rows_to_write):
+            row_to_write = [y_values[i]] + delay[i][:num_columns_to_write].tolist()
+            writer.writerow(row_to_write)
 
 def threadfunc():
-    time.sleep(5)
-    print("hi")
+    answer = input("What type of image: 1-Pattern, 2-power, 3-delay, E- exit")
+    output = input("output folder?")
+    counter = 1
+    while answer  !=  "E":
+        lib.WFS_TakeSpotfieldImage(instrument_handle)
+        lib.WFS_CalcSpotsCentrDiaIntens(instrument_handle, c_int32(1), c_int32(1))
+        if answer == "1":
+            pattern(output, counter)
+        if answer == "2":
+            power(output,counter)
+        if answer == "3":
+            delay(output,counter)
+        if answer == "N":
+            counter += 1
+        answer = input("What type of image: 1-Pattern, 2-power, 3-delay, E- exit")
+    print("quitting...")
+    print('Closing WFS')
+    lib.WFS_close(instrument_handle)
     
 
 threading.Thread(target=threadfunc).start()
@@ -109,5 +221,7 @@ fig, ax = plt.subplots()
 img_plot = ax.imshow(np.random.rand(1080, 1440), cmap='gray')
 
 ani = animation.FuncAnimation(fig, update, interval=100, fargs=(img_plot,))
+
+#plt.xlim()
 plt.show()
 
