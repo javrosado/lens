@@ -19,7 +19,7 @@ def calcScale(original_image, template, original_image_width, original_image_hei
         
     original_image_resolutionx = original_image.shape[1]
     original_image_resolutiony = original_image.shape[0]
-
+    print(template.shape[1])
     if template.shape[1] == 47: #7.2mm x 5.4mm
         xscale = ( (original_image_resolutionx / original_image_width) * (7.05/47))
         yscale = ( (original_image_resolutiony / original_image_height) * (5.25/35))
@@ -217,7 +217,7 @@ def makeScatterPlot(datasets, labels, outputDir):
         X, Y = np.meshgrid(x_values, y_values)
         Z = plot_data
 
-        plt.scatter(X.flatten(), Y.flatten(), c=Z.flatten(), cmap='viridis', s=.05, label=label)
+        plt.scatter(X.flatten(), Y.flatten(), c=Z.flatten(), cmap='viridis', s=.01, label=label)
 
         all_x_values.extend(x_values)
         all_y_values.extend(y_values)
@@ -245,7 +245,7 @@ def makeScatterPlot(datasets, labels, outputDir):
 
 
     imgOutput = os.path.join(outputDir, "combined_plot.png")
-    plt.savefig(imgOutput, dpi = 700)
+    plt.savefig(imgOutput, dpi = 1000)
 
 
 

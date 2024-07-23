@@ -199,17 +199,24 @@ def threadfunc():
     output = input("output folder?")
     counter = 1
     while answer  !=  "E":
-        lib.WFS_TakeSpotfieldImage(instrument_handle)
-        lib.WFS_CalcSpotsCentrDiaIntens(instrument_handle, c_int32(1), c_int32(1))
         if answer == "1":
+            lib.WFS_SetHighspeedMode(instrument_handle,c_int32(1),c_int32(1),c_int32(1),c_int32(0))
+            lib.WFS_TakeSpotfieldImage(instrument_handle)
+            lib.WFS_CalcSpotsCentrDiaIntens(instrument_handle, c_int32(1), c_int32(1))
             pattern(output, counter)
+
         if answer == "2":
+            lib.WFS_SetHighspeedMode(instrument_handle,c_int32(0),c_int32(1),c_int32(1),c_int32(0))
+            lib.WFS_TakeSpotfieldImage(instrument_handle)
+            lib.WFS_CalcSpotsCentrDiaIntens(instrument_handle, c_int32(1), c_int32(1))
             power(output,counter)
-        if answer == "3":
+            print("beam photo!")
             delay(output,counter)
+            print("delay photo!")
         if answer == "N":
             counter += 1
-        answer = input("What type of image: 1-Pattern, 2-power, 3-delay, E- exit")
+            print(f"New batch number {counter}")
+        answer = input("What type of image: 1-Pattern, 2-power/delay, N-Next Batch, E- exit")
     print("quitting...")
     print('Closing WFS')
     lib.WFS_close(instrument_handle)

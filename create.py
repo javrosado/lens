@@ -23,7 +23,6 @@ def getPowerArray(folder, outputDir):
         with open(file, 'r') as f:
             lines = f.readlines()
 
-        print("Opened and read file " + file)
 
         csv_Line_Start = None
         for i, line in enumerate(lines):
@@ -38,8 +37,11 @@ def getPowerArray(folder, outputDir):
         csv_Lines = lines[csv_Line_Start:]
 
         for line in csv_Lines:
-            row = [int(value.strip().replace('NaN', '0') if value.strip() else '0') for value in line.split(",")]
-            row.pop()  # Remove last element
+            try:
+                row = [int(value.strip().replace('NaN', '0') if value.strip() else '0') for value in line.split(",")]
+                row.pop()  # Remove last element
+            except ValueError as e:
+                row = [int(float((value.strip().replace('nan', '0') if value.strip() else '0'))) for value in line.split(",")]
             total_data.extend(row)
 
     # Convert total_data to numpy array and find global min and max
@@ -68,14 +70,16 @@ def getPowerArray(folder, outputDir):
 
         data = []
         for line in csv_Lines:
-            row = [int(value.strip().replace('NaN', '0') if value.strip() else '0') for value in line.split(",")]
-            row.pop()  # Remove last element
+            try:
+                row = [int(value.strip().replace('NaN', '0') if value.strip() else '0') for value in line.split(",")]
+                row.pop()  # Remove last element
+            except ValueError as e:
+                row = [int(float((value.strip().replace('nan', '0') if value.strip() else '0'))) for value in line.split(",")]
             data.append(row)
 
         # Normalize data
         data = np.array(data)
         normed = (data - global_min) * (255.0 / (global_max - global_min))
-
         name = os.path.splitext(os.path.basename(file))[0]
 
         output_file_csv = os.path.join(outputDir, f'{name}.csv')
@@ -92,7 +96,7 @@ def getPowerArray(folder, outputDir):
 def makeImage(normed, name, outputDir, answer):
     if answer.upper() == 'Y':
         normed[normed > 0] = 255
-    normed = normed.astype(np.uint8)
+    normed = normed.astype(np.int8)
     img = Image.fromarray(normed, mode='L')
     imgOutput = os.path.join(outputDir, name + ".png")
     img.save(imgOutput)
