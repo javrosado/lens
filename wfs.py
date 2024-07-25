@@ -100,7 +100,7 @@ def update(frame, img_plot):
 def pattern(output,counter):
     print("patterned photo!")
     #calculate spot deviations to internal reference
-    lib.WFS_CalcSpotToReferenceDeviations(instrument_handle, c_int32(0))
+    lib.WFS_CalcSpotToReferenceDeviations(instrument_handle, c_int32(1))
     spot_intensities = np.zeros((80,80), dtype= np.float32)  
     lib.WFS_GetSpotIntensities(instrument_handle, spot_intensities.ctypes.data_as(POINTER(c_int32)))
 
@@ -128,7 +128,7 @@ def pattern(output,counter):
 def power(output,counter):
     print("beam photo!")
     #calculate spot deviations to internal reference
-    lib.WFS_CalcSpotToReferenceDeviations(instrument_handle, c_int32(0))
+    lib.WFS_CalcSpotToReferenceDeviations(instrument_handle, c_int32(1))
     spot_intensities = np.zeros((80,80), dtype= np.float32)  
     lib.WFS_GetSpotIntensities(instrument_handle, spot_intensities.ctypes.data_as(POINTER(c_int32)))
 
@@ -155,7 +155,7 @@ def power(output,counter):
 def delay(output, counter):
     print("delay")
     #calculate spot deviations to internal reference
-    lib.WFS_CalcSpotToReferenceDeviations(instrument_handle, c_int32(0))
+    lib.WFS_CalcSpotToReferenceDeviations(instrument_handle, c_int32(1))
     delay = np.zeros((80,80), dtype= np.float32)  
     lib.WFS_CalcWavefront(instrument_handle, c_int32(0), c_int32(0), delay.ctypes.data_as(POINTER(c_int32)))
 
@@ -213,10 +213,15 @@ def threadfunc():
             print("beam photo!")
             delay(output,counter)
             print("delay photo!")
+            counter += 1
+            print(f"New batch number {counter}")
         if answer == "N":
             counter += 1
             print(f"New batch number {counter}")
-        answer = input("What type of image: 1-Pattern, 2-power/delay, N-Next Batch, E- exit")
+        if answer == "G":
+            counter -= 1
+            print(f"New batch number {counter}")
+        answer = input("What type of image: 1-Pattern, 2-power/delay, N-Next Batch, G-Go back, E- exit")
     print("quitting...")
     print('Closing WFS')
     lib.WFS_close(instrument_handle)
@@ -227,7 +232,7 @@ threading.Thread(target=threadfunc).start()
 fig, ax = plt.subplots()
 img_plot = ax.imshow(np.random.rand(1080, 1440), cmap='gray')
 
-ani = animation.FuncAnimation(fig, update, interval=100, fargs=(img_plot,))
+ani = animation.FuncAnimation(fig, update, interval=10, fargs=(img_plot,))
 
 #plt.xlim()
 plt.show()

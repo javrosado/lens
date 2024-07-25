@@ -7,6 +7,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
 import pandas as pd
+from mpl_toolkits.mplot3d import Axes3D
+from matplotlib.ticker import MaxNLocator
+from matplotlib.colors import SymLogNorm
 
 def find_template_location(original, template): #finds template
     result = cv2.matchTemplate(original, template, cv2.TM_CCOEFF_NORMED)
@@ -155,8 +158,11 @@ def fit_gaussian_to_power(power_array, initial_guess = None):
 def plot_beam_analysis(folder, index):
     power_array = getPowerCSV(folder, index)
     x0_mm, y0_mm, sigma_x, sigma_y, A, params = fit_gaussian_to_power(power_array)
+
+    x_min, x_max = x0_mm - 3 * sigma_x, x0_mm + 3 * sigma_x
+    y_min, y_max = y0_mm - 3 * sigma_y, y0_mm + 3 * sigma_y
     
-    return x0_mm, y0_mm
+    return x0_mm, y0_mm, x_max, x_min,y_max,y_min
 
 
 def mostCenter(orignal,templateCenters): #finds template that is closest to center
@@ -207,45 +213,94 @@ def mmFromCenter(px,py, original, sides, templateCenters): #finds shift of snipp
         mmYShift.append(yshift * mmPerPixel)
     return mmXShift, mmYShift
 
+def make3d(datasets,labels,outputDir, minX = None, maxX = None, minY = None, maxY = None):
+    all_x_values = []
+    all_y_values = []
+    all_z_values = []
+
+
+    for x_values, y_values, plot_data in datasets:
+        X, Y = np.meshgrid(x_values, y_values)
+        Z = plot_data.flatten()
+        valid_Z = Z[~np.isnan(Z)]  # Remove NaN values
+        all_z_values.extend(valid_Z)
+        all_x_values.extend(X.flatten())
+        all_y_values.extend(Y.flatten())
+
+    # Calculate the min and max Z values for normalization
+    vmin = min(all_z_values)
+    vmax = max(all_z_values)
+    # Create 3D scatter plot
+    fig3d = plt.figure()
+    ax3d = fig3d.add_subplot(111, projection='3d')
+
+    for (x_values, y_values, plot_data), label in zip(datasets, labels):
+        X, Y = np.meshgrid(x_values, y_values)
+        Z = plot_data
+
+        #norm = SymLogNorm(linthresh=1, linscale=1, vmin=vmin, vmax=vmax)
+        sc3d = ax3d.scatter(X.flatten(), Y.flatten(), Z.flatten(), c=Z.flatten(), cmap='viridis', s=1, label=label, norm=norm)
+        sc3d.set_norm(plt.Normalize(vmin=vmin, vmax=vmax))
+
+    cbar3d = fig3d.colorbar(sc3d, ax=ax3d, label='Delay')
+    ax3d.set_xlabel('X Coordinates')
+    ax3d.set_ylabel('Y Coordinates')
+    ax3d.set_zlabel('Z Values')
+    ax3d.set_title('Combined 3D Scatter Plot')
+
+    ax3d.set_xlim(min(all_x_values) - 1, max(all_x_values) + 1)
+    ax3d.set_ylim(min(all_y_values) - 1, max(all_y_values) + 1)
+    ax3d.set_zlim(vmin - 1, vmax + 1)
+
+    imgOutput3d = os.path.join(outputDir, "combined_3d_plot.png")
+    fig3d.savefig(imgOutput3d, dpi=800)
+    plt.show()
+
 
 def makeScatterPlot(datasets, labels, outputDir):
     all_x_values = []
     all_y_values = []
     all_z_values = []
 
+
+    for x_values, y_values, plot_data in datasets:
+        X, Y = np.meshgrid(x_values, y_values)
+        Z = plot_data.flatten()
+        valid_Z = Z[~np.isnan(Z)]  # Remove NaN values
+        all_z_values.extend(valid_Z)
+        all_x_values.extend(X.flatten())
+        all_y_values.extend(Y.flatten())
+
+    # Calculate the min and max Z values for normalization
+    vmin = min(all_z_values)
+    vmax = max(all_z_values)
+
+    fig2d, ax2d = plt.subplots()
+
     for (x_values, y_values, plot_data), label in zip(datasets, labels):
         X, Y = np.meshgrid(x_values, y_values)
         Z = plot_data
 
-        plt.scatter(X.flatten(), Y.flatten(), c=Z.flatten(), cmap='viridis', s=.01, label=label)
-
-        all_x_values.extend(x_values)
-        all_y_values.extend(y_values)
-        flattened_Z = Z.flatten()
-        valid_Z = flattened_Z[~np.isnan(flattened_Z)]  # Remove NaN values
-
-        all_z_values.extend(valid_Z)
-    # Normalize the color scale
-    vmin = min(all_z_values)  
-    vmax = max(all_z_values) 
-
-    for i in range(len(datasets)):
-        plt.gca().collections[i].set_norm(plt.Normalize(vmin=vmin, vmax=vmax))
-
-    plt.gca().set_facecolor('black')  
-    plt.colorbar(label='Delay')
-    plt.xlabel('X Coordinates')
-    plt.ylabel('Y Coordinates')
-    plt.title('Combined Scatter Plot')
-   
-
-    plt.xlim(min(all_x_values) -1 , max(all_x_values)+1)
-    plt.ylim(min(all_y_values) - 1, max(all_y_values) +1)
+        norm = SymLogNorm(linthresh=1, linscale=1, vmin=vmin, vmax=vmax)
+        sc2d =plt.scatter(X.flatten(), Y.flatten(), c=Z.flatten(), cmap='viridis', s=.05, label=label, norm=norm)
+        sc2d.set_norm(plt.Normalize(vmin=vmin, vmax=vmax))
 
 
+    ax2d.set_facecolor('black')
+    cbar2d = fig2d.colorbar(sc2d, ax=ax2d, label='Delay')
+    ax2d.set_xlabel('X Coordinates')
+    ax2d.set_ylabel('Y Coordinates')
+    ax2d.set_title('Combined 2D Scatter Plot')
 
-    imgOutput = os.path.join(outputDir, "combined_plot.png")
-    plt.savefig(imgOutput, dpi = 1000)
+    ax2d.set_xlim(min(all_x_values) - 1, max(all_x_values) + 1)
+    ax2d.set_ylim(min(all_y_values) - 1, max(all_y_values) + 1)
+
+    ax2d.xaxis.set_major_locator(MaxNLocator(integer=True, nbins='auto'))
+    ax2d.yaxis.set_major_locator(MaxNLocator(integer=True, nbins='auto'))
+    cbar2d.set_ticks(np.linspace(vmin, vmax, 10))
+
+    imgOutput2d = os.path.join(outputDir, "combined_2d_plot.png")
+    fig2d.savefig(imgOutput2d, dpi=800)
 
 
 
@@ -291,8 +346,7 @@ def getPowerArray(folder, outputDir, xshift, yshift):
 
         plot_data = plot_data[:, :-1]
         # Apply shifts
-        x_send = x_values
-        y_send = y_values
+        y_values = [-y for y in y_values] #camera is upside down, must flip
         x_values = [x + xshift[counter] for x in x_values]
         y_values = [y + yshift[counter] for y in y_values]
 
@@ -304,6 +358,7 @@ def getPowerArray(folder, outputDir, xshift, yshift):
 
     # Create the scatter plot
     makeScatterPlot(datasets, labels, outputDir)
+    make3d(datasets, labels, outputDir )
     print(f".csv files and images saved to {outputDir}")
 
 
@@ -334,8 +389,9 @@ def getPowerCSV(folder, num):
         1.050, 1.200, 1.350, 1.500, 1.650, 1.800, 1.950, 2.100, 2.250, 2.400, 
         2.550, 2.700, 2.850, 3.000, 3.150, 3.300, 3.450
     ]
+    #negated to flip into right axis. Camera is upside down
     first_col_values = [2.550, 2.4, 2.25, 2.1, 1.950, 1.80, 1.650, 1.5, 1.35, 1.2, 1.50, 0.9, 0.75,
-                     0.60, 0.45, .3, .15, 0.0, -0.15, -0.3, -0.45, -0.6, -0.75, -0.9, -1.050,
+                    0.60, 0.45, 0.3, 0.15, 0.0, -0.15, -0.3, -0.45, -0.6, -0.75, -0.9, -1.050,
                      -1.2, -1.350, -1.5, -1.65, -1.8, -1.95, -2.1, -2.25, -2.4, -2.55]
     
     # Create a 48x36 array with the first row set to the specified values
@@ -470,11 +526,26 @@ def ImageMatch():
 
     # Visualize the locations by drawing rectangles on the original image
     output_image = cv2.cvtColor(original_image, cv2.COLOR_GRAY2BGR)
+    # Define a list of colors (as BGR tuples for OpenCV)
+    colors = [
+    (0, 255, 0),     # Green
+    (255, 0, 0),     # Blue
+    (0, 0, 255),     # Red
+    (255, 255, 0),   # Cyan
+    (255, 0, 255),   # Magenta
+    (0, 255, 255),   # Yellow
+    (0,165,255),     #Orange
+    (128,0,128)]     #purple
+
     for i, template in enumerate(templates):
         top_left = locations[i]
-        
         bottom_right = (top_left[0] + template.shape[1], top_left[1] + template.shape[0])
-        cv2.rectangle(output_image, top_left, bottom_right, (0, 255, 0), 2)
+        
+        # Select color by cycling through the colors list
+        color = colors[i % len(colors)]
+        
+        # Draw rectangle with the selected color
+        cv2.rectangle(output_image, top_left, bottom_right, color, 2)
 
     # Save the output image with rectangles
     output_path = "./output/marked.jpg"
@@ -503,7 +574,7 @@ def ImageMatch():
             if mosaic is not None: #if you made a mosiaci
                 
                 index = mostCenter(original_image, centers)
-                x0, y0 =plot_beam_analysis(folder,index)
+                x0, y0, max_x,min_x,max_y,min_y =plot_beam_analysis(folder,index)
                 #find the power array of index
             else:
                 print("A mosaic was not created!")
@@ -513,7 +584,7 @@ def ImageMatch():
         px = w/2
         xshift, yshift = mmFromCenter(px, py,original_image, patternWidth, centers)
         xshift = [x + x0 for x in xshift]
-        yshift = [y-y0 for y in yshift] #y is subtracted because larger pixel number is lower, but gaussian fit calcs it other way around. Looking at graph, its inverted.
+        yshift = [y+y0 for y in yshift]  
         phase(xshift, yshift)
         
     
