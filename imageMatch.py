@@ -222,10 +222,26 @@ def make3d(datasets,labels,outputDir, minX = None, maxX = None, minY = None, max
     for x_values, y_values, plot_data in datasets:
         X, Y = np.meshgrid(x_values, y_values)
         Z = plot_data.flatten()
-        valid_Z = Z[~np.isnan(Z)]  # Remove NaN values
+        if minX is not None and maxX is not None:
+            mask_x = (X.flatten() >= minX) & (X.flatten() <= maxX)
+        else:
+            mask_x = np.ones_like(X.flatten(), dtype=bool)
+
+        if minY is not None and maxY is not None:
+            mask_y = (Y.flatten() >= minY) & (Y.flatten() <= maxY)
+        else:
+            mask_y = np.ones_like(Y.flatten(), dtype=bool)
+        
+        mask = mask_x & mask_y
+
+        valid_X = X.flatten()[mask]
+        valid_Y = Y.flatten()[mask]
+        valid_Z = Z[mask]
+        valid_Z = valid_Z[~np.isnan(valid_Z)]  # Remove NaN values
+
         all_z_values.extend(valid_Z)
-        all_x_values.extend(X.flatten())
-        all_y_values.extend(Y.flatten())
+        all_x_values.extend(valid_X)
+        all_y_values.extend(valid_Y)
 
     # Calculate the min and max Z values for normalization
     vmin = min(all_z_values)
@@ -237,9 +253,23 @@ def make3d(datasets,labels,outputDir, minX = None, maxX = None, minY = None, max
     for (x_values, y_values, plot_data), label in zip(datasets, labels):
         X, Y = np.meshgrid(x_values, y_values)
         Z = plot_data
+        if minX is not None and maxX is not None:
+                mask_x = (X.flatten() >= minX) & (X.flatten() <= maxX)
+        else:
+            mask_x = np.ones_like(X.flatten(), dtype=bool)
 
+        if minY is not None and maxY is not None:
+            mask_y = (Y.flatten() >= minY) & (Y.flatten() <= maxY)
+        else:
+            mask_y = np.ones_like(Y.flatten(), dtype=bool)
+        
+        mask = mask_x & mask_y
+
+        valid_X = X.flatten()[mask]
+        valid_Y = Y.flatten()[mask]
+        valid_Z = Z.flatten()[mask]
         #norm = SymLogNorm(linthresh=1, linscale=1, vmin=vmin, vmax=vmax)
-        sc3d = ax3d.scatter(X.flatten(), Y.flatten(), Z.flatten(), c=Z.flatten(), cmap='viridis', s=1, label=label, norm=norm)
+        sc3d = ax3d.scatter(valid_X, valid_Y, valid_Z, c=valid_Z, cmap='viridis', s=.5, label=label)
         sc3d.set_norm(plt.Normalize(vmin=vmin, vmax=vmax))
 
     cbar3d = fig3d.colorbar(sc3d, ax=ax3d, label='Delay')
@@ -256,6 +286,15 @@ def make3d(datasets,labels,outputDir, minX = None, maxX = None, minY = None, max
     fig3d.savefig(imgOutput3d, dpi=800)
     plt.show()
 
+    try:
+        minX = float(input("Enter new minX (or press Enter to skip): ") or minX)
+        maxX = float(input("Enter new maxX (or press Enter to skip): ") or maxX)
+        minY = float(input("Enter new minY (or press Enter to skip): ") or minY)
+        maxY = float(input("Enter new maxY (or press Enter to skip): ") or maxY)
+        # Replot the graph with new values
+        make3d(datasets,labels,outputDir, minX, maxX, minY, maxY)
+    except ValueError:
+        print("Invalid input. Skipping replotting.")
 
 def makeScatterPlot(datasets, labels, outputDir):
     all_x_values = []
