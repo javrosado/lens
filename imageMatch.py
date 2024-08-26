@@ -11,6 +11,17 @@ from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.ticker import MaxNLocator
 from matplotlib.colors import SymLogNorm
 
+stop_recursion = False
+
+
+def integration():
+    print("integrate")
+
+
+
+
+
+
 def find_template_location(original, template): #finds template
     result = cv2.matchTemplate(original, template, cv2.TM_CCOEFF_NORMED)
     _, _, min_loc, max_loc = cv2.minMaxLoc(result)
@@ -79,6 +90,20 @@ def loadSnippit(original_image, original_image_width, original_image_height): #l
 
     return templates, templateNames, xscale, yscale, template_folder
 
+
+def filter_csv_files(csv_files):
+    while True:
+        exclude_files = input("Enter the filenames of CSVs to exclude, separated by commas (or press Enter to skip): ")
+        if not exclude_files:
+            return csv_files
+        
+        exclude_files_list = [f.strip() for f in exclude_files.split(',')]
+        csv_files = [f for f in csv_files if os.path.basename(f) not in exclude_files_list]
+        
+        print(f"Remaining files: {csv_files}")
+        regraph = input("Do you want to regraph with the remaining files? (Y/N): ")
+        if regraph.upper() == 'Y':
+            return csv_files
 
 #STUFF FOR PHASE DELAY
 
@@ -213,7 +238,8 @@ def mmFromCenter(px,py, original, sides, templateCenters): #finds shift of snipp
         mmYShift.append(yshift * mmPerPixel)
     return mmXShift, mmYShift
 
-def make3d(datasets,labels,outputDir, minX = None, maxX = None, minY = None, maxY = None):
+def make3d(datasets,labels,outputDir, folder, xshift, yshift, minX = None, maxX = None, minY = None, maxY = None):
+    global stop_recursion
     all_x_values = []
     all_y_values = []
     all_z_values = []
@@ -272,29 +298,50 @@ def make3d(datasets,labels,outputDir, minX = None, maxX = None, minY = None, max
         sc3d = ax3d.scatter(valid_X, valid_Y, valid_Z, c=valid_Z, cmap='viridis', s=.5, label=label)
         sc3d.set_norm(plt.Normalize(vmin=vmin, vmax=vmax))
 
-    cbar3d = fig3d.colorbar(sc3d, ax=ax3d, label='Delay')
-    ax3d.set_xlabel('X Coordinates')
-    ax3d.set_ylabel('Y Coordinates')
-    ax3d.set_zlabel('Z Values')
-    ax3d.set_title('Combined 3D Scatter Plot')
+    cbar3d = fig3d.colorbar(sc3d, ax=ax3d, label=' Phase Delay (micrometers)')
+    ax3d.set_xlabel('X Coordinates(mm)')
+    ax3d.set_ylabel('Y Coordinates(mm)')
+    ax3d.set_zlabel('Phase Delay (micrometers)')
+    ax3d.set_title('Combined Plot', fontsize = 16) #FONT HERE
 
-    ax3d.set_xlim(min(all_x_values) - 1, max(all_x_values) + 1)
-    ax3d.set_ylim(min(all_y_values) - 1, max(all_y_values) + 1)
+    
+    overall_min = min(min(all_x_values), min(all_y_values)) - 1
+    overall_max = max(max(all_x_values), max(all_y_values)) + 1
+
+    total_bound = max(abs(overall_max),abs(overall_min))
+
+    ax3d.set_xlim(-1*total_bound, total_bound)
+    ax3d.set_ylim(-1*total_bound, total_bound)
     ax3d.set_zlim(vmin - 1, vmax + 1)
 
     imgOutput3d = os.path.join(outputDir, "combined_3d_plot.png")
     fig3d.savefig(imgOutput3d, dpi=800)
     plt.show()
+    if stop_recursion == True:
+        return
+    answer = input("Z:Zoom, R:regraph with exclusions, B:original E:Exit")
+    while answer != 'E':
+        if answer =="Z":
+            try:
+                minX = float(input("Enter new minX (or press Enter to skip): ") or minX)
+                maxX = float(input("Enter new maxX (or press Enter to skip): ") or maxX)
+                minY = float(input("Enter new minY (or press Enter to skip): ") or minY)
+                maxY = float(input("Enter new maxY (or press Enter to skip): ") or maxY)
+                make3d(datasets,labels,outputDir, folder,xshift,yshift, minX, maxX, minY, maxY)
+            except ValueError:
+                print("Invalid input. Skipping replotting.")
+        exclusions = []
+        if answer == "R":
+            exclusions_input = input("Enter the csvs you want excluded. No extension, separated by commas: ").strip()
+            exclusions = [name.strip() for name in exclusions_input.split(',')]
+            print(exclusions)
+            getPowerArray(folder,outputDir,xshift,yshift, exclusions)
+        if answer == "B":
+            getPowerArray(folder,outputDir,xshift,yshift)
 
-    try:
-        minX = float(input("Enter new minX (or press Enter to skip): ") or minX)
-        maxX = float(input("Enter new maxX (or press Enter to skip): ") or maxX)
-        minY = float(input("Enter new minY (or press Enter to skip): ") or minY)
-        maxY = float(input("Enter new maxY (or press Enter to skip): ") or maxY)
-        # Replot the graph with new values
-        make3d(datasets,labels,outputDir, minX, maxX, minY, maxY)
-    except ValueError:
-        print("Invalid input. Skipping replotting.")
+        answer = input("Z:Zoom, R:regraph with exclusions, E:Exit")
+    exit()
+
 
 def makeScatterPlot(datasets, labels, outputDir):
     all_x_values = []
@@ -326,27 +373,54 @@ def makeScatterPlot(datasets, labels, outputDir):
 
 
     ax2d.set_facecolor('black')
-    cbar2d = fig2d.colorbar(sc2d, ax=ax2d, label='Delay')
-    ax2d.set_xlabel('X Coordinates')
-    ax2d.set_ylabel('Y Coordinates')
-    ax2d.set_title('Combined 2D Scatter Plot')
+    cbar2d = fig2d.colorbar(sc2d, ax=ax2d, label='Phase Delay (micrometers)')
+    ax2d.set_xlabel('X Coordinates(mm)')
+    ax2d.set_ylabel('Y Coordinates(mm)')
+    ax2d.set_title('Combined Plot', fontsize = 16)
 
-    ax2d.set_xlim(min(all_x_values) - 1, max(all_x_values) + 1)
-    ax2d.set_ylim(min(all_y_values) - 1, max(all_y_values) + 1)
+
+    
+
+    overall_min = min(min(all_x_values), min(all_y_values)) - 1
+    overall_max = max(max(all_x_values), max(all_y_values)) + 1
+
+    total_bound = max(abs(overall_max),abs(overall_min))
+
+    ax2d.set_xlim(-1*total_bound, total_bound)
+    ax2d.set_ylim(-1*total_bound, total_bound)
 
     ax2d.xaxis.set_major_locator(MaxNLocator(integer=True, nbins='auto'))
     ax2d.yaxis.set_major_locator(MaxNLocator(integer=True, nbins='auto'))
-    cbar2d.set_ticks(np.linspace(vmin, vmax, 10))
+    cbar2d.set_ticks(np.linspace(vmin, vmax, 5))
 
     imgOutput2d = os.path.join(outputDir, "combined_2d_plot.png")
     fig2d.savefig(imgOutput2d, dpi=800)
 
 
 
-def getPowerArray(folder, outputDir, xshift, yshift):
+def getPowerArray(folder, outputDir, xshift, yshift, exclude = None):
     csvFiles = glob.glob(os.path.join(folder, "*.csv"))
     datasets = []
     labels = []
+
+    filtered_xshift = xshift
+    filtered_yshift = yshift
+
+  
+
+    if exclude is not None:
+        filtered_xshift = []
+        filtered_yshift =[]
+        filtered_csvFiles = []
+        for idx, file in enumerate(csvFiles):
+            base_name = os.path.basename(file)
+            name,_ = os.path.splitext(base_name)
+            if name not in exclude:
+                filtered_csvFiles.append(file)
+                filtered_xshift.append(xshift[idx])
+                filtered_yshift.append(yshift[idx])
+        csvFiles = filtered_csvFiles
+        print(csvFiles)
 
     if not csvFiles:
         print("Oops, no files found.")
@@ -386,8 +460,8 @@ def getPowerArray(folder, outputDir, xshift, yshift):
         plot_data = plot_data[:, :-1]
         # Apply shifts
         y_values = [-y for y in y_values] #camera is upside down, must flip
-        x_values = [x + xshift[counter] for x in x_values]
-        y_values = [y + yshift[counter] for y in y_values]
+        x_values = [x + filtered_xshift[counter] for x in x_values]
+        y_values = [y + filtered_yshift[counter] for y in y_values]
 
         # Adjust x_values and y_values to match the plot_data's dimensions
         x_values = x_values[:plot_data.shape[1]]
@@ -397,7 +471,7 @@ def getPowerArray(folder, outputDir, xshift, yshift):
 
     # Create the scatter plot
     makeScatterPlot(datasets, labels, outputDir)
-    make3d(datasets, labels, outputDir )
+    make3d(datasets, labels, outputDir,folder, xshift,yshift) #pass data, lables, output, and the folder with csvs, all for regraphing
     print(f".csv files and images saved to {outputDir}")
 
 

@@ -79,7 +79,7 @@ lib.WFS_SetPupil(instrument_handle, c_double(0.0), c_double(0.0), c_double(2.0),
 actual_exposure = c_double()
 actual_gain = c_double()
 device_status = c_int32()
-
+#NOISE
 print(lib.WFS_SetExposureTime(instrument_handle, c_double(0.01), byref(actual_exposure)))
 print(actual_exposure)
 
@@ -202,12 +202,26 @@ def threadfunc():
         if answer == "1":
             lib.WFS_SetHighspeedMode(instrument_handle,c_int32(1),c_int32(1),c_int32(1),c_int32(0))
             lib.WFS_TakeSpotfieldImage(instrument_handle)
+            lib.WFS_GetStatus(instrument_handle, byref(device_status))
+            if device_status.value & 0x00000002:
+                print("Power too high")
+            elif device_status.value & 0x00000004:
+                print("Power too low")
+            elif device_status.value & 0x00000008:
+                print("High ambient light")
             lib.WFS_CalcSpotsCentrDiaIntens(instrument_handle, c_int32(1), c_int32(1))
             pattern(output, counter)
 
         if answer == "2":
             lib.WFS_SetHighspeedMode(instrument_handle,c_int32(0),c_int32(1),c_int32(1),c_int32(0))
             lib.WFS_TakeSpotfieldImage(instrument_handle)
+            lib.WFS_GetStatus(instrument_handle, byref(device_status))
+            if device_status.value & 0x00000002:
+                print("Power too high")
+            elif device_status.value & 0x00000004:
+                print("Power too low")
+            elif device_status.value & 0x00000008:
+                print("High ambient light")
             lib.WFS_CalcSpotsCentrDiaIntens(instrument_handle, c_int32(1), c_int32(1))
             power(output,counter)
             print("beam photo!")
@@ -236,4 +250,9 @@ ani = animation.FuncAnimation(fig, update, interval=10, fargs=(img_plot,))
 
 #plt.xlim()
 plt.show()
+
+
+#NOTES: noise and exposure time can be set by changing code itself
+#The are marked and on LINE HERE
+#This only currently works  with largest aperature.
 
