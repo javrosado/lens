@@ -1,0 +1,50 @@
+*READ ME*
+
+WFS.PY---
+
+WFS.py is not very well documented. But read through Thorlabs and it should come to you. Read the methods used
+
+Read the documentation in the header files for the methods. These come downloaded with wfs software.
+
+So far ONLY works with the larget aperature of the camera, 7 by something by 5 by something.
+
+The console gives instructions. However the first image is usally bugged (all black). Just save both types of images ('1' and '2') then from there it should work.
+
+The "live feed" works using mat.plot.lib. When Ivy and I did it, we just used math.random, which likely causes the weird "noise" looking stuff at top of feed.
+The static look shouldn't affect the actual data, as it seems to be just the way it draws the images its getting from camera. Try to fix it if you can.
+
+Camera going black when taking image '1', means its working. It is because '1', switches the camera into highspeed mode which doesn't send images to comp. '2' resets it back to normal.
+
+YOU SHOULD make sure the setting that cancels tilt is off. Speak to Aaron about this or contact me. This setting may make false hoods in data. One of these methods has the setting for it (it'll be one of the 1's or zeros for on or off). Shouldn't be too difficult of a find. It should be a parameter "cancel tilt" in the Thorlabs documentation
+
+
+Create.py----
+
+Creates images based on the csv data. Will create images based on the csv size.
+
+
+ 
+For "make it white?" Do this for PATTERNED PHOTO. this way the photo is as close to what the pattern is as an input. 
+
+Dont do make white for non patterned.
+
+Each does all of the csvs in the file.
+
+
+ImageMatch.py--
+NOTE THIS ONLY ENTIRELY WORKS WITH MAX SIZE
+Largely documented
+
+What it does: Load in photos, matches them on the pattern and produces their location and new image...cont
+
+The crown jewel! This does a lot. Lets break it down :)
+
+find_template_locaion- Finds the location of the snippet. Takes orginal and template as input
+
+calcscale- calculates the scale of image for image matching. works with all sizes
+
+loadSnippit- loads snippits in. globs them tg for manipulation
+
+filter_csv_files: used excludes stuff from graphing
+
+Bunch of graphing stuff....
