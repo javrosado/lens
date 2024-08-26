@@ -1,0 +1,80 @@
+
+def makeScatterPlot(datasets, labels, outputDir):
+    for (x_values, y_values, plot_data), label in zip(datasets, labels):
+        X, Y = np.meshgrid(x_values, y_values)
+        Z = plot_data
+
+        plt.scatter(X.flatten(), Y.flatten(), c=Z.flatten(), cmap='viridis', s=1, label=label)
+
+    plt.colorbar(label='Delay')
+    plt.xlabel('X Coordinates')
+    plt.ylabel('Y Coordinates')
+    plt.title('Combined Scatter Plot')
+
+    # Set limits to encompass all data
+    all_x_values = [x for (x_values, _, _) in datasets for x in x_values]
+    all_y_values = [y for (_, y_values, _) in datasets for y in y_values]
+
+    plt.xlim(min(all_x_values), max(all_x_values))
+    plt.ylim(min(all_y_values), max(all_y_values))
+
+    plt.legend()
+
+    imgOutput = os.path.join(outputDir, "combined_plot.png")
+    plt.savefig(imgOutput)
+    plt.show()
+
+def getPowerArray(folder, outputDir, xshift, yshift):
+    csvFiles = glob.glob(os.path.join(folder, "*.csv"))
+    datasets = []
+    labels = []
+
+    if not csvFiles:
+        print("Oops, no files found.")
+        return
+
+    if not os.path.exists(outputDir):
+        os.makedirs(outputDir)
+
+    for counter, file in enumerate(csvFiles):
+        base_name = os.path.basename(file)
+        name, ext = os.path.splitext(base_name)
+        labels.append(name)
+
+        with open(file, 'r') as csvfile:
+            lines = csvfile.readlines()
+
+        # Find the starting line after "Spots Y"
+        start_line = None
+        for i, line in enumerate(lines):
+            if line.strip().startswith("Spots Y"):
+                start_line = i + 1  # Start processing from the next line
+                break
+
+        if start_line is None:
+            print(f"No 'Spots Y' line found in {file}. Skipping.")
+            continue
+        
+        # Read data from the identified start line
+        csv_reader = csv.reader(lines[start_line:])
+        data = list(csv_reader)
+
+        # Process the data to extract coordinates
+        x_values = [float(val.strip()) for val in data[0][1:] if val.strip()]  # All elements except the first from the first row
+        y_values = [float(row[0].strip()) for row in data[1:] if row[0].strip()]  # All elements except the first from the first column
+        plot_data = np.array([[float(val.strip()) if val.strip() else 0 for val in row[1:]] for row in data[1:]])
+
+        plot_data = plot_data[:, :-1]
+        # Apply shifts
+        x_values = [x + xshift[counter] for x in x_values]
+        y_values = [y + yshift[counter] for y in y_values]
+
+        # Adjust x_values and y_values to match the plot_data's dimensions
+        x_values = x_values[:plot_data.shape[1]]
+        y_values = y_values[:plot_data.shape[0]]
+
+        datasets.append((x_values, y_values, plot_data))
+
+    # Create the scatter plot
+    makeScatterPlot(datasets, labels, outputDir)
+    print(f".csv files and images saved to {outputDir}")
